@@ -1,0 +1,1143 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>釜山家族之旅記帳神器 | Busan Trip Expenses</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        busan: {
+                            50: '#f0f9ff',
+                            100: '#e0f2fe',
+                            500: '#0284c7',
+                            600: '#0369a1',
+                            700: '#075985',
+                            800: '#0c4a6e',
+                            navy: '#0f172a',
+                            teal: '#0d9488'
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Noto Sans TC', 'sans-serif']
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Modern Glassmorphism & Custom Scrollbar */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(226, 232, 240, 0.8);
+        }
+        .gradient-header {
+            background: linear-gradient(135deg, #0284c7 0%, #0d9488 100%);
+        }
+        .hide-scrollbar::-webkit-scrollbar {
+            display: none;
+        }
+        .hide-scrollbar {
+            -ms-overflow-style: none;
+            scrollbar-width: none;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans min-h-screen pb-12 flex flex-col">
+
+    <!-- Header / Navbar -->
+    <header class="gradient-header text-white shadow-lg sticky top-0 z-30">
+        <div class="max-w-4xl mx-auto px-4 py-3 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="w-10 h-10 rounded-full bg-white/20 flex items-center justify-center text-xl shadow-inner">
+                    <i class="fa-solid me-0.5 fa-plane-departure"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg leading-tight flex items-center gap-2">
+                        釜山家族之旅 🌊
+                    </h1>
+                    <p class="text-xs text-sky-100 flex items-center gap-2">
+                        <span>Christy</span> • <span>Cherry</span> • <span>Andy</span> • <span>Didi</span>
+                    </p>
+                </div>
+            </div>
+            
+            <div class="flex items-center gap-2">
+                <!-- Sync Status Badge -->
+                <button id="syncStatusBtn" onclick="openSettingsModal()" class="px-2.5 py-1 rounded-full text-xs font-medium bg-white/15 hover:bg-white/25 transition border border-white/20 flex items-center gap-1.5">
+                    <span id="syncDot" class="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                    <span id="syncText">連線中...</span>
+                    <i class="fa-solid fa-gear text-xs opacity-75"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- Navigation Tabs -->
+        <div class="max-w-4xl mx-auto px-4 flex border-t border-white/10">
+            <button id="tabBtnExpenses" onclick="switchTab('expenses')" class="flex-1 py-3 text-center text-sm font-semibold border-b-2 border-white transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-receipt"></i>
+                <span>記錄支出</span>
+            </button>
+            <button id="tabBtnSettlement" onclick="switchTab('settlement')" class="flex-1 py-3 text-center text-sm font-semibold border-b-2 border-transparent text-sky-100 hover:text-white transition flex items-center justify-center gap-2">
+                <i class="fa-solid fa-calculator"></i>
+                <span>誰欠誰結算</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-4xl mx-auto w-full px-4 pt-5 flex-1">
+
+        <!-- GLOBAL STATS BAR -->
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-5">
+            <div class="glass-card rounded-xl p-3 shadow-sm border-l-4 border-sky-500">
+                <div class="text-xs text-slate-500">總支出 (港幣)</div>
+                <div class="text-lg font-bold text-slate-800" id="statTotalHKD">HK$ 0</div>
+            </div>
+            <div class="glass-card rounded-xl p-3 shadow-sm border-l-4 border-teal-500">
+                <div class="text-xs text-slate-500">總支出 (韓元)</div>
+                <div class="text-lg font-bold text-slate-800" id="statTotalKRW">₩ 0</div>
+            </div>
+            <div class="glass-card rounded-xl p-3 shadow-sm border-l-4 border-indigo-500">
+                <div class="text-xs text-slate-500">筆數統計</div>
+                <div class="text-lg font-bold text-slate-800" id="statCount">0 筆</div>
+            </div>
+            <div class="glass-card rounded-xl p-3 shadow-sm border-l-4 border-amber-500">
+                <div class="text-xs text-slate-500">Google 實時匯率</div>
+                <div class="text-sm font-bold text-slate-800 mt-0.5 flex items-center gap-1" id="statRate">
+                    1 HKD = <span id="statRateVal">170</span> KRW
+                </div>
+                <div class="text-[10px] text-slate-400 mt-0.5" id="statRateTime">自動同步中...</div>
+            </div>
+        </div>
+
+        <!-- ================= TAB 1: 記錄支出 ================= -->
+        <section id="tabExpenses" class="space-y-6">
+            
+            <!-- Expense Form Card -->
+            <div class="glass-card rounded-2xl p-5 shadow-md">
+                <div class="flex items-center justify-between mb-4 pb-2 border-b border-slate-100">
+                    <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-plus-circle text-sky-600"></i> 新增消費項目
+                    </h2>
+                </div>
+
+                <form id="expenseForm" onsubmit="handleFormSubmit(event)" class="space-y-4">
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <!-- Date -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">日期</label>
+                            <input type="date" id="inputDate" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                        </div>
+
+                        <!-- Description -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">消費項目 / 說明</label>
+                            <input type="text" id="inputDescription" placeholder="例：海雲臺烤肉 / 膠囊列車" required class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                        <!-- Category -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">類別</label>
+                            <select id="inputCategory" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                                <option value="飲食">🍔 飲食</option>
+                                <option value="交通">🚌 交通</option>
+                                <option value="門票景點">🎟️ 門票景點</option>
+                                <option value="購物">🛍️ 購物</option>
+                                <option value="住宿">🏨 住宿</option>
+                                <option value="雜項">📦 雜項</option>
+                            </select>
+                        </div>
+
+                        <!-- Currency & Amount -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1">金額</label>
+                            <div class="flex">
+                                <select id="inputCurrency" onchange="updateCurrencyCalcHint()" class="bg-slate-200 border border-r-0 border-slate-300 rounded-l-lg px-2 text-xs font-semibold text-slate-700 focus:outline-none">
+                                    <option value="KRW">韓元 (₩)</option>
+                                    <option value="HKD">港幣 (HK$)</option>
+                                </select>
+                                <input type="number" id="inputAmount" step="any" min="0" placeholder="0" required oninput="updateCurrencyCalcHint()" class="w-full bg-slate-50 border border-slate-300 rounded-r-lg px-3 py-2 text-sm font-semibold focus:ring-2 focus:ring-sky-500 focus:outline-none">
+                            </div>
+                        </div>
+
+                        <!-- Exchange Rate Auto-Synced (Readonly) -->
+                        <div>
+                            <label class="block text-xs font-semibold text-slate-600 mb-1 flex items-center justify-between">
+                                <span>匯率 (1 HKD = ? KRW)</span>
+                                <span id="rateSyncBadge" class="text-[10px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded flex items-center gap-1 font-medium">
+                                    <i class="fa-solid fa-rotate animate-spin text-[9px]" id="rateSpinner"></i> 同步中...
+                                </span>
+                            </label>
+                            <div class="relative">
+                                <input type="number" id="inputRate" value="170" readonly class="w-full bg-slate-100 border border-slate-300 rounded-lg px-3 py-2 text-sm font-semibold text-slate-700 cursor-not-allowed focus:outline-none" title="匯率由 Google / 市場實時 API 自動同步，不可自行修訂">
+                                <button type="button" onclick="fetchLiveExchangeRate(true)" title="強制重新刷匯率" class="absolute right-2 top-2.5 text-slate-400 hover:text-sky-600 text-xs px-1.5 py-0.5 rounded hover:bg-slate-200 transition">
+                                    <i class="fa-solid fa-arrows-rotate"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Calculated preview hint -->
+                    <div id="currencyHint" class="text-xs text-sky-700 bg-sky-50 p-2 rounded-lg font-medium flex items-center justify-between">
+                        <span>約等於：HK$ 0.00</span>
+                        <span class="text-slate-400">系統自動統一折算 HKD 進行清算</span>
+                    </div>
+
+                    <!-- Paid By -->
+                    <div>
+                        <label class="block text-xs font-semibold text-slate-600 mb-1.5">誰先付款？ (單選)</label>
+                        <div class="grid grid-cols-4 gap-2" id="paidByContainer">
+                            <!-- Populated dynamically via JS -->
+                        </div>
+                    </div>
+
+                    <!-- Split Among -->
+                    <div>
+                        <div class="flex items-center justify-between mb-1.5">
+                            <label class="text-xs font-semibold text-slate-600">誰參與分攤？ (可複選)</label>
+                            <div class="space-x-2">
+                                <button type="button" onclick="selectAllSplit(true)" class="text-xs text-sky-600 hover:underline">全選</button>
+                                <span class="text-slate-300">|</span>
+                                <button type="button" onclick="selectAllSplit(false)" class="text-xs text-slate-500 hover:underline">全不選</button>
+                            </div>
+                        </div>
+                        <div class="grid grid-cols-4 gap-2" id="splitAmongContainer">
+                            <!-- Populated dynamically via JS -->
+                        </div>
+                    </div>
+
+                    <!-- Submit Button -->
+                    <button type="submit" class="w-full bg-sky-600 hover:bg-sky-700 text-white font-bold py-3 px-4 rounded-xl shadow-md hover:shadow-lg transition flex items-center justify-center gap-2">
+                        <i class="fa-solid fa-paper-plane"></i>
+                        <span>加入消費紀錄</span>
+                    </button>
+                </form>
+            </div>
+
+            <!-- Expense History List Section -->
+            <div class="glass-card rounded-2xl p-5 shadow-md">
+                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-4">
+                    <h2 class="text-base font-bold text-slate-800 flex items-center gap-2">
+                        <i class="fa-solid fa-list-check text-sky-600"></i> 開支歷史明細
+                    </h2>
+                    
+                    <!-- Search & Filter Controls -->
+                    <div class="flex items-center gap-2">
+                        <div class="relative flex-1 sm:w-48">
+                            <i class="fa-solid fa-magnifying-glass absolute left-3 top-2.5 text-xs text-slate-400"></i>
+                            <input type="text" id="searchInput" oninput="renderExpenses()" placeholder="搜尋描述 / 付款人..." class="w-full bg-slate-100 border border-slate-200 rounded-lg pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-sky-500">
+                        </div>
+                        <select id="filterCategory" onchange="renderExpenses()" class="bg-slate-100 border border-slate-200 rounded-lg px-2 py-1.5 text-xs font-medium focus:outline-none">
+                            <option value="ALL">全部類別</option>
+                            <option value="飲食">🍔 飲食</option>
+                            <option value="交通">🚌 交通</option>
+                            <option value="門票景點">🎟️ 門票景點</option>
+                            <option value="購物">🛍️ 購物</option>
+                            <option value="住宿">🏨 住宿</option>
+                            <option value="雜項">📦 雜項</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Expenses Table / Cards Container -->
+                <div id="expenseListContainer" class="space-y-3">
+                    <!-- Dynamic rendering -->
+                </div>
+            </div>
+
+        </section>
+
+        <!-- ================= TAB 2: 誰欠誰結算 ================= -->
+        <section id="tabSettlement" class="space-y-6 hidden">
+
+            <!-- Optimized Settlement Summary Card -->
+            <div class="glass-card rounded-2xl p-5 shadow-md border-t-4 border-teal-500">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <h2 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                            <i class="fa-solid fa-hand-holding-dollar text-teal-600"></i> 最佳化還款方案 (邊個爭邊個幾錢)
+                        </h2>
+                        <p class="text-xs text-slate-500 mt-0.5">系統自動將筆數極小化，讓大家用最少的轉帳次數完成清算。</p>
+                    </div>
+                    <button onclick="copySettlementSummary()" class="text-xs bg-teal-50 hover:bg-teal-100 text-teal-700 px-3 py-1.5 rounded-lg border border-teal-200 font-semibold transition flex items-center gap-1.5">
+                        <i class="fa-regular fa-copy"></i> 複製清算結果
+                    </button>
+                </div>
+
+                <div id="settlementPlanContainer" class="space-y-3">
+                    <!-- Populated dynamically via JS -->
+                </div>
+            </div>
+
+            <!-- Individual Balance Cards Grid -->
+            <div>
+                <h3 class="text-base font-bold text-slate-800 mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-users text-sky-600"></i> 各人收支概況
+                </h3>
+                <div class="grid grid-cols-1 sm:grid-cols-2 gap-4" id="memberCardsContainer">
+                    <!-- Populated dynamically via JS -->
+                </div>
+            </div>
+
+            <!-- Detailed Audit Trail per Person -->
+            <div class="glass-card rounded-2xl p-5 shadow-md">
+                <h3 class="text-base font-bold text-slate-800 mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-pie text-indigo-600"></i> 個人費用應付明細拆解
+                </h3>
+                <div id="memberBreakdownContainer" class="space-y-4">
+                    <!-- Populated dynamically via JS -->
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Custom Delete Confirmation Modal -->
+    <div id="deleteModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="glass-card bg-white rounded-2xl max-w-xs w-full p-5 shadow-2xl text-center space-y-4">
+            <div class="w-12 h-12 rounded-full bg-rose-100 text-rose-500 mx-auto flex items-center justify-center text-xl">
+                <i class="fa-solid fa-trash-can"></i>
+            </div>
+            <div>
+                <h3 class="font-bold text-slate-800 text-base">確定刪除此紀錄？</h3>
+                <p class="text-xs text-slate-500 mt-1">此動作無法撤銷，雲端同步將同步扣除。</p>
+            </div>
+            <div class="flex items-center gap-2">
+                <button onclick="closeDeleteModal()" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold py-2.5 rounded-xl transition">取消</button>
+                <button id="confirmDeleteBtn" class="flex-1 bg-rose-600 hover:bg-rose-700 text-white text-xs font-bold py-2.5 rounded-xl shadow transition">確定刪除</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings & Google Apps Script Setup Modal -->
+    <div id="settingsModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="glass-card bg-white rounded-2xl max-w-xl w-full p-6 shadow-2xl max-h-[90vh] overflow-y-auto">
+            <div class="flex items-center justify-between mb-4 border-b pb-3">
+                <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                    <i class="fa-solid fa-database text-sky-600"></i> Google Sheet 試算表連結設定
+                </h3>
+                <button onclick="closeSettingsModal()" class="text-slate-400 hover:text-slate-600 p-1">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+
+            <div class="space-y-4">
+                <p class="text-xs text-slate-600 leading-relaxed">
+                    本系統已內建你的 Google Sheet Web App URL。如果四位家人（Christy, Cherry, Andy, Didi）在不同手機開啟網頁，資料會自動連線 Google Sheets！
+                </p>
+
+                <div>
+                    <label class="block text-xs font-bold text-slate-700 mb-1">Google Apps Script Web App URL</label>
+                    <input type="url" id="gasUrlInput" placeholder="https://script.google.com/macros/s/.../exec" class="w-full bg-slate-50 border border-slate-300 rounded-lg px-3 py-2 text-xs focus:ring-2 focus:ring-sky-500 focus:outline-none font-mono">
+                </div>
+
+                <div class="flex items-center gap-2">
+                    <button onclick="saveGasSettings()" class="bg-sky-600 hover:bg-sky-700 text-white text-xs font-bold py-2 px-4 rounded-lg shadow transition">
+                        儲存 URL
+                    </button>
+                    <button onclick="syncWithGoogleSheet()" class="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold py-2 px-4 rounded-lg shadow transition flex items-center gap-1.5">
+                        <i class="fa-solid fa-rotate"></i> 立即與 Google Sheet 同步
+                    </button>
+                    <button onclick="resetGasUrl()" class="text-xs text-slate-500 hover:underline ml-auto">
+                        重置預設 URL
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-5 right-5 bg-slate-900 text-white px-4 py-3 rounded-xl shadow-2xl text-xs font-medium flex items-center gap-2 transform translate-y-20 opacity-0 transition-all duration-300 z-50">
+        <i id="toastIcon" class="fa-solid fa-circle-check text-emerald-400"></i>
+        <span id="toastMsg">提示訊息</span>
+    </div>
+
+    <!-- Application Script -->
+    <script>
+        // --- CONSTANTS & HARDCODED GOOGLE SHEET URL ---
+        const DEFAULT_GAS_URL = 'https://script.google.com/macros/s/AKfycbwSHsL7KnfXA4JIeUUZrLFIDuQymMNtqNg8Zq7tjHQLLXXVx_sQ7kcxrZWtX9ZHUW3P/exec';
+
+        const MEMBERS = ['Christy', 'Cherry', 'Andy', 'Didi'];
+        const MEMBER_COLORS = {
+            'Christy': { bg: 'bg-rose-100', text: 'text-rose-700', border: 'border-rose-300', badge: 'bg-rose-500' },
+            'Cherry': { bg: 'bg-amber-100', text: 'text-amber-700', border: 'border-amber-300', badge: 'bg-amber-500' },
+            'Andy': { bg: 'bg-sky-100', text: 'text-sky-700', border: 'border-sky-300', badge: 'bg-sky-500' },
+            'Didi': { bg: 'bg-emerald-100', text: 'text-emerald-700', border: 'border-emerald-300', badge: 'bg-emerald-500' }
+        };
+        const CATEGORY_ICONS = {
+            '飲食': '🍔',
+            '交通': '🚌',
+            '門票景點': '🎟️',
+            '購物': '🛍️',
+            '住宿': '🏨',
+            '雜項': '📦'
+        };
+
+        // Storage keys
+        const STORAGE_EXPENSES_KEY = 'busan_trip_expenses_v1';
+        const STORAGE_GAS_URL_KEY = 'busan_trip_gas_url_v1';
+        const STORAGE_CACHED_RATE_KEY = 'busan_cached_rate_v1';
+
+        let expenses = [];
+        let gasWebUrl = DEFAULT_GAS_URL;
+        let selectedPaidBy = 'Christy';
+        let currentLiveRate = 170;
+        let lastRateUpdatedStr = '';
+        let pendingDeleteId = null;
+
+        // --- INITIALIZATION ---
+        window.addEventListener('DOMContentLoaded', async () => {
+            // Set default date to today
+            document.getElementById('inputDate').value = new Date().toISOString().split('T')[0];
+
+            // Force update to user's new URL if previous cached URL was different
+            localStorage.setItem(STORAGE_GAS_URL_KEY, DEFAULT_GAS_URL);
+            gasWebUrl = DEFAULT_GAS_URL;
+            document.getElementById('gasUrlInput').value = gasWebUrl;
+
+            const localData = localStorage.getItem(STORAGE_EXPENSES_KEY);
+            if (localData) {
+                try {
+                    expenses = JSON.parse(localData);
+                } catch (e) {
+                    expenses = [];
+                }
+            } else {
+                expenses = [];
+                saveExpensesToLocalStorage();
+            }
+
+            renderPayerOptions();
+            renderSplitOptions();
+            updateSyncStatusUI(null);
+
+            // Setup custom modal delete button action
+            document.getElementById('confirmDeleteBtn').onclick = executeDeleteExpense;
+
+            // Render local views immediately so UI isn't blocked by network
+            refreshAllViews();
+
+            // Auto Fetch Real-time Exchange Rate at App Launch (Gracefully caught)
+            try {
+                await fetchLiveExchangeRate();
+            } catch (err) {
+                console.warn('Live exchange rate fetch skipped:', err);
+            }
+            
+            // Auto sync from remote Google Sheet if URL exists
+            if (gasWebUrl) {
+                syncWithGoogleSheet(true).catch(err => {
+                    console.warn('Initial background sync skipped:', err);
+                });
+            }
+        });
+
+        // --- LIVE EXCHANGE RATE FETCH (OPEN ER API) ---
+        async function fetchLiveExchangeRate(manual = false) {
+            const spinner = document.getElementById('rateSpinner');
+            const badge = document.getElementById('rateSyncBadge');
+            if (spinner) spinner.classList.add('animate-spin');
+
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 6000);
+
+            try {
+                // Fetch HKD to KRW rate from free real-time financial API
+                const res = await fetch('https://open.er-api.com/v6/latest/HKD', { signal: controller.signal });
+                clearTimeout(timeoutId);
+                if (!res.ok) throw new Error('匯率 API 存取失敗');
+                
+                const data = await res.json();
+                if (data && data.rates && data.rates.KRW) {
+                    currentLiveRate = parseFloat(data.rates.KRW.toFixed(2));
+                    lastRateUpdatedStr = new Date().toLocaleTimeString('zh-HK', { hour: '2-digit', minute: '2-digit' });
+                    
+                    // Cache rate
+                    localStorage.setItem(STORAGE_CACHED_RATE_KEY, currentLiveRate.toString());
+
+                    document.getElementById('inputRate').value = currentLiveRate;
+                    if (badge) {
+                        badge.className = "text-[10px] text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded flex items-center gap-1 font-medium";
+                        badge.innerHTML = `<i class="fa-solid fa-circle-check text-emerald-500 text-[9px]"></i> Google 實時`;
+                    }
+                    if (manual) showToast(`已更新實時匯率：1 HKD = ${currentLiveRate} KRW`);
+                }
+            } catch (err) {
+                clearTimeout(timeoutId);
+                console.warn('API 實時匯率獲取失敗，啟動備用降級機制:', err);
+                const cached = localStorage.getItem(STORAGE_CACHED_RATE_KEY);
+                if (cached) {
+                    currentLiveRate = parseFloat(cached);
+                    lastRateUpdatedStr = '快取匯率';
+                } else {
+                    currentLiveRate = 170;
+                    lastRateUpdatedStr = '預設匯率';
+                }
+                document.getElementById('inputRate').value = currentLiveRate;
+                if (badge) {
+                    badge.className = "text-[10px] text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded flex items-center gap-1 font-medium";
+                    badge.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-amber-500 text-[9px]"></i> ${lastRateUpdatedStr}`;
+                }
+                if (manual) showToast('無法連線匯率 API，使用備份/預設匯率', 'error');
+            } finally {
+                if (spinner) spinner.classList.remove('animate-spin');
+                updateCurrencyCalcHint();
+                renderStats();
+            }
+        }
+
+        // --- TAB SWITCHING ---
+        function switchTab(tab) {
+            const btnExpenses = document.getElementById('tabBtnExpenses');
+            const btnSettlement = document.getElementById('tabBtnSettlement');
+            const tabExpenses = document.getElementById('tabExpenses');
+            const tabSettlement = document.getElementById('tabSettlement');
+
+            if (tab === 'expenses') {
+                btnExpenses.className = "flex-1 py-3 text-center text-sm font-semibold border-b-2 border-white text-white transition flex items-center justify-center gap-2";
+                btnSettlement.className = "flex-1 py-3 text-center text-sm font-semibold border-b-2 border-transparent text-sky-100 hover:text-white transition flex items-center justify-center gap-2";
+                tabExpenses.classList.remove('hidden');
+                tabSettlement.classList.add('hidden');
+            } else {
+                btnSettlement.className = "flex-1 py-3 text-center text-sm font-semibold border-b-2 border-white text-white transition flex items-center justify-center gap-2";
+                btnExpenses.className = "flex-1 py-3 text-center text-sm font-semibold border-b-2 border-transparent text-sky-100 hover:text-white transition flex items-center justify-center gap-2";
+                tabSettlement.classList.remove('hidden');
+                tabExpenses.classList.add('hidden');
+                renderSettlementView();
+            }
+        }
+
+        // --- UI RENDERING FOR FORM CONTROLS ---
+        function renderPayerOptions() {
+            const container = document.getElementById('paidByContainer');
+            container.innerHTML = MEMBERS.map(name => {
+                const isSelected = name === selectedPaidBy;
+                const style = MEMBER_COLORS[name];
+                return `
+                    <button type="button" onclick="selectPaidBy('${name}')" 
+                        class="p-2.5 rounded-xl border text-xs font-bold flex flex-col items-center justify-center transition ${isSelected ? `${style.bg} ${style.border} ${style.text} ring-2 ring-sky-500 shadow-sm` : 'bg-slate-50 border-slate-200 text-slate-600 hover:bg-slate-100'}">
+                        <span class="w-6 h-6 rounded-full text-white font-bold text-[10px] flex items-center justify-center mb-1 ${style.badge}">
+                            ${name[0]}
+                        </span>
+                        ${name}
+                    </button>
+                `;
+            }).join('');
+        }
+
+        function selectPaidBy(name) {
+            selectedPaidBy = name;
+            renderPayerOptions();
+        }
+
+        function renderSplitOptions() {
+            const container = document.getElementById('splitAmongContainer');
+            container.innerHTML = MEMBERS.map(name => {
+                const style = MEMBER_COLORS[name];
+                return `
+                    <label class="p-2.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 cursor-pointer text-xs font-medium flex items-center justify-between transition">
+                        <div class="flex items-center gap-1.5">
+                            <span class="w-5 h-5 rounded-full text-white text-[9px] font-bold flex items-center justify-center ${style.badge}">
+                                ${name[0]}
+                            </span>
+                            <span class="text-slate-700">${name}</span>
+                        </div>
+                        <input type="checkbox" name="splitMember" value="${name}" checked class="w-4 h-4 text-sky-600 rounded border-slate-300 focus:ring-sky-500">
+                    </label>
+                `;
+            }).join('');
+        }
+
+        function selectAllSplit(status) {
+            document.querySelectorAll('input[name="splitMember"]').forEach(cb => cb.checked = status);
+        }
+
+        function updateCurrencyCalcHint() {
+            const amount = parseFloat(document.getElementById('inputAmount').value) || 0;
+            const currency = document.getElementById('inputCurrency').value;
+            const rate = currentLiveRate || 170;
+            const hint = document.getElementById('currencyHint');
+
+            if (currency === 'KRW') {
+                const hkdEquivalent = amount / rate;
+                hint.innerHTML = `<span>約等於：<strong class="text-sky-800">HK$ ${hkdEquivalent.toFixed(2)}</strong> (按實時 1 HKD = ${rate} KRW 換算)</span><span class="text-slate-400">自動折算</span>`;
+            } else {
+                const krwEquivalent = amount * rate;
+                hint.innerHTML = `<span>約等於：<strong class="text-teal-800">₩ ${Math.round(krwEquivalent).toLocaleString()} KRW</strong></span><span class="text-slate-400">以港幣結算</span>`;
+            }
+        }
+
+        // --- FORM SUBMISSION & DATA ACTIONS ---
+        function handleFormSubmit(e) {
+            e.preventDefault();
+
+            const date = document.getElementById('inputDate').value;
+            const description = document.getElementById('inputDescription').value.trim();
+            const category = document.getElementById('inputCategory').value;
+            const amount = parseFloat(document.getElementById('inputAmount').value);
+            const currency = document.getElementById('inputCurrency').value;
+            const rate = currentLiveRate || 170;
+
+            const checkedSplit = Array.from(document.querySelectorAll('input[name="splitMember"]:checked')).map(cb => cb.value);
+
+            if (!description || isNaN(amount) || amount <= 0) {
+                showToast('請輸入正確的項目說明與金額！', 'error');
+                return;
+            }
+
+            if (checkedSplit.length === 0) {
+                showToast('請至少選擇一位分攤成員！', 'error');
+                return;
+            }
+
+            const newExpense = {
+                id: 'exp_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4),
+                date,
+                description,
+                category,
+                amount,
+                currency,
+                rate,
+                paidBy: selectedPaidBy,
+                splitAmong: checkedSplit,
+                createdAt: Date.now()
+            };
+
+            expenses.unshift(newExpense);
+            saveExpensesToLocalStorage();
+            refreshAllViews();
+
+            // Reset form input
+            document.getElementById('inputDescription').value = '';
+            document.getElementById('inputAmount').value = '';
+
+            showToast('已成功新增支出記錄！');
+
+            // Auto push to Google Sheet
+            if (gasWebUrl) {
+                pushToGoogleSheet();
+            }
+        }
+
+        function deleteExpense(id) {
+            pendingDeleteId = id;
+            document.getElementById('deleteModal').classList.remove('hidden');
+        }
+
+        function closeDeleteModal() {
+            pendingDeleteId = null;
+            document.getElementById('deleteModal').classList.add('hidden');
+        }
+
+        function executeDeleteExpense() {
+            if (pendingDeleteId) {
+                expenses = expenses.filter(item => item.id !== pendingDeleteId);
+                saveExpensesToLocalStorage();
+                refreshAllViews();
+                showToast('已成功刪除消費記錄');
+                if (gasWebUrl) {
+                    pushToGoogleSheet();
+                }
+            }
+            closeDeleteModal();
+        }
+
+        function saveExpensesToLocalStorage() {
+            localStorage.setItem(STORAGE_EXPENSES_KEY, JSON.stringify(expenses));
+        }
+
+        // Helper: Convert any expense to standard HKD
+        function getAmountInHKD(expense) {
+            if (expense.currency === 'KRW') {
+                return expense.amount / (expense.rate || 170);
+            }
+            return expense.amount;
+        }
+
+        // Helper: Convert any expense to standard KRW
+        function getAmountInKRW(expense) {
+            if (expense.currency === 'HKD') {
+                return expense.amount * (expense.rate || 170);
+            }
+            return expense.amount;
+        }
+
+        // --- RENDER EXPENSES & STATS ---
+        function refreshAllViews() {
+            renderStats();
+            renderExpenses();
+            renderSettlementView();
+        }
+
+        function renderStats() {
+            let totalHKD = 0;
+            let totalKRW = 0;
+
+            expenses.forEach(item => {
+                totalHKD += getAmountInHKD(item);
+                totalKRW += getAmountInKRW(item);
+            });
+
+            document.getElementById('statTotalHKD').innerText = `HK$ ${Math.round(totalHKD).toLocaleString()}`;
+            document.getElementById('statTotalKRW').innerText = `₩ ${Math.round(totalKRW).toLocaleString()}`;
+            document.getElementById('statCount').innerText = `${expenses.length} 筆`;
+            
+            document.getElementById('statRateVal').innerText = currentLiveRate;
+            const timeElem = document.getElementById('statRateTime');
+            if (timeElem) {
+                timeElem.innerText = lastRateUpdatedStr ? `上次更新 ${lastRateUpdatedStr}` : 'Google 實時同步';
+            }
+        }
+
+        function renderExpenses() {
+            const container = document.getElementById('expenseListContainer');
+            const searchKeyword = document.getElementById('searchInput').value.toLowerCase();
+            const filterCat = document.getElementById('filterCategory').value;
+
+            const filtered = expenses.filter(item => {
+                const matchSearch = item.description.toLowerCase().includes(searchKeyword) || 
+                                    item.paidBy.toLowerCase().includes(searchKeyword);
+                const matchCat = filterCat === 'ALL' || item.category === filterCat;
+                return matchSearch && matchCat;
+            });
+
+            if (filtered.length === 0) {
+                container.innerHTML = `
+                    <div class="text-center py-10 text-slate-400">
+                        <i class="fa-solid fa-receipt text-4xl mb-2 opacity-40"></i>
+                        <p class="text-xs font-semibold">目前無任何費用記錄</p>
+                        <p class="text-[11px] text-slate-400 mt-1">填寫上方表單即可記錄第一筆釜山消費！</p>
+                    </div>
+                `;
+                return;
+            }
+
+            container.innerHTML = filtered.map(item => {
+                const icon = CATEGORY_ICONS[item.category] || '💸';
+                const hkdAmount = getAmountInHKD(item);
+                const payerStyle = MEMBER_COLORS[item.paidBy] || { bg: 'bg-slate-100', text: 'text-slate-700', badge: 'bg-slate-500' };
+
+                const splitBadges = (Array.isArray(item.splitAmong) ? item.splitAmong : (item.splitAmong || '').split(','))
+                    .map(name => {
+                        const s = MEMBER_COLORS[name] || { badge: 'bg-slate-400' };
+                        return `<span class="inline-block px-1.5 py-0.5 text-[10px] font-semibold text-white rounded ${s.badge}">${name}</span>`;
+                    }).join(' ');
+
+                return `
+                    <div class="p-3.5 rounded-xl border border-slate-200 bg-white hover:shadow-md transition flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                        <div class="flex items-start gap-3">
+                            <div class="w-10 h-10 rounded-xl bg-slate-100 flex items-center justify-center text-lg flex-shrink-0">
+                                ${icon}
+                            </div>
+                            <div>
+                                <div class="flex items-center gap-2">
+                                    <h4 class="font-bold text-slate-800 text-sm">${item.description}</h4>
+                                    <span class="text-[10px] px-2 py-0.5 rounded-full bg-slate-100 text-slate-600 font-medium">${item.category}</span>
+                                </div>
+                                <div class="text-xs text-slate-500 mt-1 flex flex-wrap items-center gap-x-3 gap-y-1">
+                                    <span><i class="fa-regular fa-calendar-days text-slate-400 mr-1"></i>${item.date}</span>
+                                    <span>付款人：<strong class="${payerStyle.text}">${item.paidBy}</strong></span>
+                                </div>
+                                <div class="mt-1.5 flex items-center gap-1">
+                                    <span class="text-[10px] text-slate-400">分攤：</span>
+                                    <div class="flex flex-wrap gap-1">${splitBadges}</div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between sm:justify-end gap-4 border-t sm:border-t-0 pt-2 sm:pt-0 border-slate-100">
+                            <div class="text-right">
+                                <div class="text-base font-bold text-slate-900">
+                                    ${item.currency === 'KRW' ? `₩ ${item.amount.toLocaleString()}` : `HK$ ${item.amount.toLocaleString()}`}
+                                </div>
+                                <div class="text-[11px] text-slate-500 font-medium">
+                                    ≈ HK$ ${hkdAmount.toFixed(1)}
+                                </div>
+                            </div>
+                            <button onclick="deleteExpense('${item.id}')" class="text-slate-300 hover:text-rose-500 p-2 transition" title="刪除">
+                                <i class="fa-regular fa-trash-can text-sm"></i>
+                            </button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        // --- TAB 2: DEBT SETTLEMENT ALGORITHM (MINIMAL TRANSACTIONS) ---
+        function renderSettlementView() {
+            // 1. Calculate paid total & fair share per person
+            const totals = {};
+            MEMBERS.forEach(m => {
+                totals[m] = { paidHKD: 0, shareHKD: 0, netHKD: 0 };
+            });
+
+            expenses.forEach(item => {
+                const hkd = getAmountInHKD(item);
+                const participants = Array.isArray(item.splitAmong) ? item.splitAmong : (item.splitAmong || '').split(',');
+                
+                // Add to payer's credit
+                if (totals[item.paidBy]) {
+                    totals[item.paidBy].paidHKD += hkd;
+                }
+
+                // Split among participants
+                if (participants.length > 0) {
+                    const sharePerPerson = hkd / participants.length;
+                    participants.forEach(p => {
+                        if (totals[p]) {
+                            totals[p].shareHKD += sharePerPerson;
+                        }
+                    });
+                }
+            });
+
+            // Calculate Net Balance (Paid - Share)
+            MEMBERS.forEach(m => {
+                totals[m].netHKD = totals[m].paidHKD - totals[m].shareHKD;
+            });
+
+            // 2. Compute Minimal Transactions Algorithm
+            const debtors = [];  // net < 0 (who owe money)
+            const creditors = []; // net > 0 (who are owed money)
+
+            MEMBERS.forEach(m => {
+                const net = totals[m].netHKD;
+                if (net < -0.01) {
+                    debtors.push({ name: m, amount: Math.abs(net) });
+                } else if (net > 0.01) {
+                    creditors.push({ name: m, amount: net });
+                }
+            });
+
+            // Sort descending
+            debtors.sort((a, b) => b.amount - a.amount);
+            creditors.sort((a, b) => b.amount - a.amount);
+
+            const transactions = [];
+            let dIdx = 0;
+            let cIdx = 0;
+
+            while (dIdx < debtors.length && cIdx < creditors.length) {
+                const debtor = debtors[dIdx];
+                const creditor = creditors[cIdx];
+                const settleAmount = Math.min(debtor.amount, creditor.amount);
+
+                if (settleAmount > 0.5) {
+                    transactions.push({
+                        from: debtor.name,
+                        to: creditor.name,
+                        amountHKD: Math.round(settleAmount),
+                        amountKRW: Math.round(settleAmount * currentLiveRate)
+                    });
+                }
+
+                debtor.amount -= settleAmount;
+                creditor.amount -= settleAmount;
+
+                if (debtor.amount < 0.5) dIdx++;
+                if (creditor.amount < 0.5) cIdx++;
+            }
+
+            // 3. Render Settlement Plan Card
+            const planContainer = document.getElementById('settlementPlanContainer');
+            if (transactions.length === 0) {
+                planContainer.innerHTML = `
+                    <div class="text-center py-6 text-slate-500 bg-teal-50/50 rounded-xl border border-teal-100">
+                        <i class="fa-solid fa-circle-check text-2xl text-teal-500 mb-1"></i>
+                        <p class="text-xs font-bold text-teal-800">目前費用已完美平帳！無須任何轉帳還款。</p>
+                    </div>
+                `;
+            } else {
+                planContainer.innerHTML = transactions.map(t => {
+                    const fromStyle = MEMBER_COLORS[t.from];
+                    const toStyle = MEMBER_COLORS[t.to];
+                    return `
+                        <div class="p-3.5 rounded-xl border border-slate-200 bg-white flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+                            <div class="flex items-center gap-3">
+                                <div class="flex items-center gap-2">
+                                    <span class="px-2.5 py-1 rounded-lg text-xs font-bold text-white ${fromStyle.badge}">
+                                        ${t.from}
+                                    </span>
+                                    <i class="fa-solid fa-arrow-right text-slate-400 text-xs"></i>
+                                    <span class="px-2.5 py-1 rounded-lg text-xs font-bold text-white ${toStyle.badge}">
+                                        ${t.to}
+                                    </span>
+                                </div>
+                                <span class="text-xs text-slate-500 font-medium">需支付給</span>
+                            </div>
+
+                            <div class="text-right flex items-center justify-between sm:justify-end gap-3">
+                                <div>
+                                    <div class="text-base font-bold text-teal-700">HK$ ${t.amountHKD.toLocaleString()}</div>
+                                    <div class="text-[10px] text-slate-400 font-medium">≈ ₩ ${t.amountKRW.toLocaleString()} KRW</div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                }).join('');
+            }
+
+            // Save global text for copying settlement
+            window.latestSettlementSummaryText = transactions.length > 0 
+                ? `釜山之旅【結算清算結果】:\n` + transactions.map(t => `👉 ${t.from} 需給 ${t.to} HK$ ${t.amountHKD} (約 ₩${t.amountKRW.toLocaleString()} KRW)`).join('\n')
+                : '釜山之旅【結算結果】: 所有成員費用已平帳，無須轉帳！';
+
+            // 4. Render Member Cards
+            const cardsContainer = document.getElementById('memberCardsContainer');
+            cardsContainer.innerHTML = MEMBERS.map(m => {
+                const data = totals[m];
+                const style = MEMBER_COLORS[m];
+                const net = data.netHKD;
+                
+                let statusBadge = '';
+                if (net > 0.5) {
+                    statusBadge = `<span class="bg-emerald-100 text-emerald-800 border border-emerald-300 text-xs font-bold px-2.5 py-1 rounded-full">應收 HK$ ${Math.round(net).toLocaleString()}</span>`;
+                } else if (net < -0.5) {
+                    statusBadge = `<span class="bg-rose-100 text-rose-800 border border-rose-300 text-xs font-bold px-2.5 py-1 rounded-full">應付 HK$ ${Math.round(Math.abs(net)).toLocaleString()}</span>`;
+                } else {
+                    statusBadge = `<span class="bg-slate-100 text-slate-600 text-xs font-bold px-2.5 py-1 rounded-full">已平帳</span>`;
+                }
+
+                return `
+                    <div class="glass-card rounded-xl p-4 shadow-sm border ${style.border}">
+                        <div class="flex items-center justify-between mb-3 border-b border-slate-100 pb-2">
+                            <div class="flex items-center gap-2">
+                                <span class="w-7 h-7 rounded-full text-white font-bold text-xs flex items-center justify-center ${style.badge}">
+                                    ${m[0]}
+                                </span>
+                                <span class="font-bold text-slate-800 text-sm">${m}</span>
+                            </div>
+                            ${statusBadge}
+                        </div>
+                        <div class="grid grid-cols-2 gap-2 text-xs">
+                            <div class="bg-slate-50 p-2 rounded-lg">
+                                <div class="text-slate-400">總共墊付款項</div>
+                                <div class="font-bold text-slate-700 text-sm mt-0.5">HK$ ${Math.round(data.paidHKD).toLocaleString()}</div>
+                            </div>
+                            <div class="bg-slate-50 p-2 rounded-lg">
+                                <div class="text-slate-400">個人應負擔額</div>
+                                <div class="font-bold text-slate-700 text-sm mt-0.5">HK$ ${Math.round(data.shareHKD).toLocaleString()}</div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            // 5. Render Breakdown Detail
+            const breakdownContainer = document.getElementById('memberBreakdownContainer');
+            breakdownContainer.innerHTML = MEMBERS.map(m => {
+                const style = MEMBER_COLORS[m];
+                
+                // Find expenses involved
+                const itemsInvolved = expenses.filter(e => {
+                    const parts = Array.isArray(e.splitAmong) ? e.splitAmong : (e.splitAmong || '').split(',');
+                    return e.paidBy === m || parts.includes(m);
+                });
+
+                if (itemsInvolved.length === 0) return '';
+
+                return `
+                    <div class="border border-slate-200 rounded-xl overflow-hidden bg-white">
+                        <div class="bg-slate-50 px-3.5 py-2 border-b border-slate-200 flex items-center justify-between text-xs font-bold">
+                            <span class="${style.text} flex items-center gap-1.5">
+                                <span class="w-2 h-2 rounded-full ${style.badge}"></span> ${m} 的消費參與明細
+                            </span>
+                            <span class="text-slate-400 font-normal">共 ${itemsInvolved.length} 筆</span>
+                        </div>
+                        <div class="divide-y divide-slate-100 text-xs">
+                            ${itemsInvolved.map(e => {
+                                const totalHKD = getAmountInHKD(e);
+                                const parts = Array.isArray(e.splitAmong) ? e.splitAmong : (e.splitAmong || '').split(',');
+                                const myShare = parts.includes(m) ? (totalHKD / parts.length) : 0;
+                                const isPayer = e.paidBy === m;
+
+                                return `
+                                    <div class="p-2.5 flex items-center justify-between">
+                                        <div>
+                                            <div class="font-semibold text-slate-800">${e.description}</div>
+                                            <div class="text-[10px] text-slate-400">
+                                                ${e.date} • ${isPayer ? '你付的款' : `${e.paidBy} 先付`} (全額 HK$ ${totalHKD.toFixed(1)})
+                                            </div>
+                                        </div>
+                                        <div class="text-right">
+                                            <div class="font-medium text-slate-700">應負擔 HK$ ${myShare.toFixed(1)}</div>
+                                            ${isPayer ? `<div class="text-[10px] text-emerald-600 font-semibold">+墊付 HK$ ${totalHKD.toFixed(1)}</div>` : ''}
+                                        </div>
+                                    </div>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
+                `;
+            }).join('');
+        }
+
+        function copySettlementSummary() {
+            if (!window.latestSettlementSummaryText) return;
+            copyToClipboard(window.latestSettlementSummaryText);
+            showToast('已複製清算結果文字到剪貼簿！');
+        }
+
+        // --- GOOGLE SHEETS & GAS SYNC ---
+        function openSettingsModal() {
+            document.getElementById('settingsModal').classList.remove('hidden');
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('settingsModal').classList.add('hidden');
+        }
+
+        function saveGasSettings() {
+            const url = document.getElementById('gasUrlInput').value.trim();
+            gasWebUrl = url;
+            localStorage.setItem(STORAGE_GAS_URL_KEY, gasWebUrl);
+            updateSyncStatusUI(null);
+            showToast('已儲存 Web App URL');
+            closeSettingsModal();
+            if (gasWebUrl) {
+                syncWithGoogleSheet();
+            }
+        }
+
+        function resetGasUrl() {
+            gasWebUrl = DEFAULT_GAS_URL;
+            localStorage.setItem(STORAGE_GAS_URL_KEY, DEFAULT_GAS_URL);
+            document.getElementById('gasUrlInput').value = DEFAULT_GAS_URL;
+            updateSyncStatusUI(null);
+            showToast('已重置為預設 Google Sheet URL');
+            closeSettingsModal();
+            syncWithGoogleSheet();
+        }
+
+        function updateSyncStatusUI(isConnected = null) {
+            const dot = document.getElementById('syncDot');
+            const text = document.getElementById('syncText');
+            if (isConnected === true) {
+                dot.className = "w-2 h-2 rounded-full bg-emerald-400 animate-pulse";
+                text.innerText = "已連線 Sheet";
+            } else if (isConnected === false) {
+                dot.className = "w-2 h-2 rounded-full bg-rose-400";
+                text.innerText = "連線失敗 (權限/網路)";
+            } else {
+                dot.className = "w-2 h-2 rounded-full bg-amber-400 animate-spin";
+                text.innerText = "連線喚醒中...";
+            }
+        }
+
+        async function syncWithGoogleSheet(silent = false) {
+            if (!gasWebUrl) {
+                if (!silent) showToast('請先設定 Google Apps Script URL！', 'error');
+                updateSyncStatusUI(false);
+                return;
+            }
+
+            // 15 Seconds timeout for Google Apps Script cold-start wake up
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+            try {
+                if (!silent) showToast('正在喚醒並讀取 Google Sheet 資料...');
+                updateSyncStatusUI(null);
+
+                const response = await fetch(gasWebUrl, { signal: controller.signal });
+                clearTimeout(timeoutId);
+
+                if (!response.ok) throw new Error('HTTP status: ' + response.status);
+                
+                const rawText = await response.text();
+                let remoteData;
+                
+                try {
+                    remoteData = JSON.parse(rawText);
+                } catch (parseErr) {
+                    throw new Error('Google Apps Script 權限問題（請確認部署存取權限已設為「所有人 Anyone」）');
+                }
+
+                if (Array.isArray(remoteData)) {
+                    expenses = remoteData.map(item => ({
+                        ...item,
+                        amount: parseFloat(item.amount) || 0,
+                        rate: parseFloat(item.rate) || 170,
+                        splitAmong: typeof item.splitAmong === 'string' ? item.splitAmong.split(',') : (item.splitAmong || [])
+                    }));
+                    saveExpensesToLocalStorage();
+                    updateSyncStatusUI(true);
+                    if (!silent) showToast('已成功同步 Google Sheet 雲端資料！');
+                }
+            } catch (err) {
+                clearTimeout(timeoutId);
+                console.warn('Google Sheet Sync Error:', err.message || err);
+                updateSyncStatusUI(false);
+                if (!silent) {
+                    showToast(err.message || '無法連線至 Google Sheet，請檢查網路或權限。', 'error');
+                }
+            } finally {
+                refreshAllViews();
+            }
+        }
+
+        async function pushToGoogleSheet() {
+            if (!gasWebUrl) return;
+
+            try {
+                await fetch(gasWebUrl, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({
+                        action: 'sync_all',
+                        expenses: expenses
+                    })
+                });
+            } catch (e) {
+                console.warn('Push error:', e);
+            }
+        }
+
+        // --- UTILS ---
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const toastMsg = document.getElementById('toastMsg');
+            const toastIcon = document.getElementById('toastIcon');
+
+            toastMsg.innerText = message;
+            if (type === 'error') {
+                toastIcon.className = "fa-solid fa-circle-exclamation text-rose-400";
+            } else {
+                toastIcon.className = "fa-solid fa-circle-check text-emerald-400";
+            }
+
+            toast.classList.remove('translate-y-20', 'opacity-0');
+            setTimeout(() => {
+                toast.classList.add('translate-y-20', 'opacity-0');
+            }, 3000);
+        }
+
+        function copyToClipboard(text) {
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(text);
+            } else {
+                const input = document.createElement('textarea');
+                input.value = text;
+                document.body.appendChild(input);
+                input.select();
+                document.execCommand('copy');
+                document.body.removeChild(input);
+            }
+        }
+    </script>
+</body>
+</html>
